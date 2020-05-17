@@ -7,7 +7,8 @@
 #include <openssl/bn.h>
 
 #define MY_VERBOSE
-#define CONST_ARRAY_SIZE 4096
+#define CONST_ARRAY_SIZE     4096
+#define CONST_MAX_WINDOW_LEN 1024
 
 /*
 void createPoint(
@@ -46,6 +47,7 @@ void createPoint(
 
 typedef struct window {
     BIGNUM*  W;
+    uint64_t W_ui;
     uint64_t length;   // Длина окна в битах
 } window;
 
@@ -187,7 +189,9 @@ int getWindow(
 
 
     BN_bin2bn(resultData, resultNumBytes, (*resWind).W);
-    //printf("W: %s\n", BN_bn2hex((*resWind).W));
+
+    (*resWind).W_ui = atoll(BN_bn2dec((*resWind).W));
+    //printf("W: %s\t%u\n", BN_bn2hex((*resWind).W), (*resWind).W_ui);
 
     free(resultData);
     return lenWindow;
@@ -224,7 +228,7 @@ unsigned int constructWindows(
     (*winds)[0].W = BN_new();
     num_bits = BN_num_bits(k);
 
-    for (int offset = 0; offset < num_bits - 1; windNum++)
+    for (int offset = 0; offset < num_bits; windNum++)
     {
         /// v init
         // Выделяем новое окно
@@ -236,6 +240,7 @@ unsigned int constructWindows(
         *winds = tmpRealloc;
         tmpRealloc = NULL;
         (*winds)[windNum - 1].W = BN_new();
+        (*winds)[windNum - 1].W_ui = 0;
         /// ^ init
 
         offset += getWindow(
@@ -264,6 +269,18 @@ unsigned int constructWindows(
     return windNum - 1;
 }
 
+void deleteWindows(
+    window**           windowsArray,
+    const unsigned int windNum
+)
+{
+    for (int i = 0; i < windNum; i++)
+    {
+        BN_clear_free((*windowsArray)[i].W);
+    }
+    free(*windowsArray);
+}
+
 void printWindows(
     const window* windowsArray,
     const unsigned int windNum,
@@ -285,7 +302,7 @@ void printWindows(
 
     for (int i = 0; i < windNum; i++)
     {
-        printf("%s%i:\t", ((BN_is_zero(windowsArray[i].W)) ? "ZW" : "NZW"), i);
+        printf("%u\t%s\t%i\t:\t", windowsArray[i].length, ((BN_is_zero(windowsArray[i].W)) ? "ZW" : "NZW"), i);
         if (BN_is_zero(windowsArray[i].W))
         {
             for (int j = 0; j < windowsArray[i].length; j++)
@@ -301,80 +318,297 @@ void printWindows(
             {
                 printf("%c", getBit(bytes, j) + '0');
             }
+
+
+
+            //char tmp[256] = { 0 };
+            //_itoa_s(windowsArray[i].W_ui, tmp, 256, 16);
+            //printf("\t%s", tmp);
+
+
+
         }
         printf("\n");
     }
 }
 
-int main()
+/*
+// Положительное число в си-строку в hex-преставлении
+void itoha(
+    const uint64_t number,
+    char* str
+)
 {
-    //unsigned char* binary = NULL;
-    //constructBeDataFromBinArray(&binary, "101100111101", 12);
-    //free(binary);
+    int i = 0;
+    uint64_t num = number;
 
+    // Handle 0 explicitely, otherwise empty string is printed for 0 
+    if (num == 0)
+    {
+        str[i++] = '0';
+        str[i] = '\0';
+        return str;
+    }
 
-    BIGNUM* k_tmp = NULL;
-    window* windowsArray = NULL;
+    // Process individual digits 
+    while (num != 0)
+    {
+        int rem = num % 16;
+        str[i++] = (rem > 9) ? (rem - 10) + 'a' : rem + '0';
+        num /= 16;
+    }
 
-    //BN_dec2bn(&k_tmp, "269");
-    //BN_dec2bn(&k_tmp, "37");
-    //BN_dec2bn(&k_tmp, "137830");
-    BN_dec2bn(&k_tmp, "399974");
-    //BN_dec2bn(&k_tmp, "10");
+    str[i] = '\0'; // Append string terminator 
 
-    //printf("%s\n", BN_bn2hex(k_tmp));
+    // Reverse the string 
+    strrev(str);
+}
+*/
 
-    unsigned char bin[1024] = { 0 };
+EC_POINT* multiply_VLNW(
+    const BIGNUM*      k, // Множитель
+    const unsigned int d, // Параметр окна: максимальная длина NZW
+    const unsigned int r, // Параметр окна: минимальная длина серии нулей, необходимая для перехода из NZW к ZW
+    const EC_POINT*    P, // Точка эллиптической кривой, которая будет умножена на k
+    const EC_GROUP*    G  // Группа точек эллиптической кривой
+)
+{
+    window*      f                     = NULL;            // Массив скользящих окон
+    unsigned int s                     = 0;               // Количество окон
+    EC_POINT*    Q                     = EC_POINT_new(G); // Точка Q - результат
+
+    BIGNUM*      tmp                   = BN_new();
+    char         str[CONST_ARRAY_SIZE] = { 0 };
     
-    BN_bn2bin(k_tmp, bin, 1024);
+    BIGNUM**     pow2                  = NULL;            // Массив чисел в формате BIGNUM*, где pow2[i] = 2^{i}
+    EC_POINT**   iP                    = NULL;            // Массив кратных точек iP
+    
 
-    //int test = BN_num_bits(k_tmp);
+    // Заполнение массива pow2
+    pow2 = (BIGNUM**)calloc(CONST_MAX_WINDOW_LEN, sizeof(BIGNUM*));
+    if (!pow2)
+    {
+        errExit("calloc error");
+    }
+    for (int i = 0; i < CONST_MAX_WINDOW_LEN; i++)
+    {
+        pow2[i] = NULL;
+        memset(str, 0, sizeof(char));
+        str[i] = '1';
+        BN_bin2bn(str, i + 1, pow2[i]);
+    }
+    memset(str, 0, sizeof(char));
 
-    unsigned int windNum = constructWindows(
-        k_tmp,
-        4,
-        2,
-        &windowsArray
+    // Выделение памяти для массива iP
+    iP = (EC_POINT**)calloc(1 << d, sizeof(EC_POINT*));
+    if (!iP)
+    {
+        errExit("calloc error");
+    }
+
+
+
+    /// АЛГОРИТМ /// Вычисление кратной точки методом скользящего окна (слева-направо)
+
+    /// 1 /// Для i = 3, 5, 7, ..., 2^d - 1 вычислить и сохранить точки iP
+    BIGNUM* bn_i    = BN_new();
+    BN_dec2bn(&bn_i, "1");
+    str[d] = '1';
+    BIGNUM* bn_max  = BN_new();
+    BN_bin2bn(str, d + 1, bn_max);
+    for (int i = 1; i < (1 << d); BN_add_word(bn_i, 2), i += 2)
+    {
+        iP[i] = EC_POINT_new(G);
+        EC_POINT_copy(
+            iP[i], // src
+            P      // dst
+        );
+        EC_POINT_mul(
+            G,
+            iP[i],
+            bn_i,
+            NULL,
+            NULL,
+            NULL
+        );
+    }
+    BN_clear_free(bn_i);
+    BN_clear_free(bn_max);
+    memset(str, 0, sizeof(char));
+
+    /// 2 /// Положить Q <- O_{inf}
+    EC_POINT_set_to_infinity(G, Q);
+
+    /// 3 /// Разбить бинарное представление k на нулевые и ненулевые окна соответствующим методом: k = (f_{s-1}, f_{s-2}, ..., f_0)
+    s = constructWindows(
+        k, // (const) Число k
+        d, // (const) Число d
+        r, // (const) Число r
+        &f // Массив для записи результата
     );
 
-    printWindows(windowsArray, windNum, k_tmp);
+    /// 4 - Оперативный этап /// Для i от s-1 до 0 выполнять:
+    for (int i = s - 1; i >= 0; i--)
+    {
+        /// 4.1 /// Q <- 2^{len(f_i)}Q
+        EC_POINT_mul(
+            G,
+            Q,
+            pow2[f[i].length],
+            NULL,
+            NULL,
+            NULL
+        );
+                
+        /// 4.2 /// Если f_i != 0, то Q <- Q + f_{i}P
+        //if (!BN_is_zero(f[i].W))
+        if (f[i].W_ui != 0)
+        {
+            EC_POINT_add(
+                G,
+                Q,
+                Q,
+                iP[f[i].W_ui],
+                NULL,
+                NULL,
+                NULL
+            );
+        }
 
-    return 0;
+    }
+
+
+    // v Освобождение памяти
+    deleteWindows(&f, s);
+
+    for (int i = 0; i < CONST_MAX_WINDOW_LEN; i++)
+    {
+        BN_clear_free(pow2[i]);
+    }
+    free(pow2);
+
+    for (int i = 0; i < (1 << d); i++)
+    {
+        EC_POINT_clear_free(iP[i]);
+    }
+    free(iP);
+    // ^
+
+    /// 5 /// Вернуть Q
+    return Q;
+}
+
+
+
+int main()
+{
+
+
+
+
+
+
+
+
+
+    ////unsigned char* binary = NULL;
+    ////constructBeDataFromBinArray(&binary, "101100111101", 12);
+    ////free(binary);
+    //
+    //
+    //BIGNUM* k_tmp = NULL;
+    //window* windowsArray = NULL;
+    //
+    ////BN_dec2bn(&k_tmp, "269");
+    ////BN_dec2bn(&k_tmp, "37");
+    //BN_dec2bn(&k_tmp, "137830");
+    ////BN_dec2bn(&k_tmp, "81");
+    ////BN_dec2bn(&k_tmp, "399974");
+    ////BN_dec2bn(&k_tmp, "10");
+    //
+    ////printf("%s\n", BN_bn2hex(k_tmp));
+    //
+    //unsigned char bin[1024] = { 0 };
+    //
+    //BN_bn2bin(k_tmp, bin, 1024);
+    //
+    ////int test = BN_num_bits(k_tmp);
+    //
+    //unsigned int windNum = constructWindows(
+    //    k_tmp,
+    //    4, // d
+    //    2, // r
+    //    &windowsArray
+    //);
+    //
+    //printWindows(windowsArray, windNum, k_tmp);
+    //
+    //deleteWindows(&windowsArray, windNum);
+    //
+    ////return 0;
 
 
     EC_GROUP* G = EC_GROUP_new_by_curve_name(NID_secp256k1);
-    //EC_POINT* P = EC_POINT_new(G);
-    EC_POINT* Q = EC_POINT_new(G);
+    EC_POINT* P = EC_POINT_new(G);
+    EC_POINT* Q_check = EC_POINT_new(G);
+    BIGNUM* k = BN_new();
+
+    BN_dec2bn(&k, "137830");
 
 
     //EC_POINT_set_to_infinity(G, P);
     //createPoint(G, &Q, "10", "7", "3");
 
-    BIGNUM *x = BN_new(), *y = BN_new(), *z = BN_new();
 
-    EC_POINT_get_Jprojective_coordinates_GFp(G, Q, x, y, z, NULL);
-    printf("x %s\ny %s\nz %s\nOn curve %s\nIs inf %s\n",
-        BN_bn2hex(x), BN_bn2hex(y), BN_bn2hex(z),
+    //printf("On curve %s\nIs inf %s\n",
+    //    EC_POINT_is_on_curve(G, P, NULL) ? "yes" : "no",
+    //    EC_POINT_is_at_infinity(G, P, NULL) ? "yes" : "no");
+
+
+    BIGNUM* tmp = BN_new();
+    BN_dec2bn(&tmp, "10");
+    EC_POINT_mul(G, P, tmp, NULL, NULL, NULL);
+
+    printf("On curve %s\nIs inf %s\n",
+        EC_POINT_is_on_curve(G, P, NULL) ? "yes" : "no",
+        EC_POINT_is_at_infinity(G, P, NULL) ? "yes" : "no");
+
+
+
+
+    EC_POINT_mul(
+        G, 
+        Q_check, 
+        NULL, 
+        P, 
+        k, 
+        NULL
+    );
+
+    EC_POINT* Q = multiply_VLNW(
+        k,
+        4,
+        3,
+        P,
+        G
+    );
+
+    printf("Q:\nOn curve %s\nIs inf %s\n",
         EC_POINT_is_on_curve(G, Q, NULL) ? "yes" : "no",
         EC_POINT_is_at_infinity(G, Q, NULL) ? "yes" : "no");
 
-
-    BIGNUM* k = BN_new();
-    BN_dec2bn(&k, "10");
-    EC_POINT_mul(G, Q, k, NULL, NULL, NULL);
-
-    EC_POINT_get_Jprojective_coordinates_GFp(G, Q, x, y, z, NULL);
-    printf("x %s\ny %s\nz %s\nOn curve %s\nIs inf %s\n",
-        BN_bn2hex(x), BN_bn2hex(y), BN_bn2hex(z),
+    printf("Q_check:\nOn curve %s\nIs inf %s\n",
         EC_POINT_is_on_curve(G, Q, NULL) ? "yes" : "no",
         EC_POINT_is_at_infinity(G, Q, NULL) ? "yes" : "no");
 
-    BN_clear_free(x);
-    BN_clear_free(y);
-    BN_clear_free(z);
+    printf("Q equal Q_check: %s\n",
+        EC_POINT_cmp(G, Q, Q_check, NULL) ? "yes" : "no");
+
+
     BN_clear_free(k);
-    //EC_POINT_clear_free(P);
+    EC_POINT_clear_free(P);
     EC_POINT_clear_free(Q);
+    EC_POINT_clear_free(Q_check);
     EC_GROUP_clear_free(G);
 
     system("pause");
