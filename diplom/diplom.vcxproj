@@ -19,7 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="my_utils.c" />
     <ClCompile Include="testOpenSSL.c" />
+    <ClCompile Include="vlnw.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="my_utils.h" />
+    <ClInclude Include="vlnw.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
