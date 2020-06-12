@@ -7,7 +7,7 @@
 
 
 
-#define CONST_MAX_WINDOW_LEN 1024
+#define CONST_MAX_WINDOW_LEN 128
 
 typedef struct window {
     BIGNUM* W;
@@ -57,6 +57,16 @@ void multiply_VLNW(
     EC_POINT** Q
 );
 void multiply_VLNW_modified(
+    const BIGNUM* k, // Множитель
+    const unsigned int kMaxLen, // Максимальная длина числа k
+    const unsigned int d, // Параметр окна: максимальная длина NZW
+    const unsigned int r, // Параметр окна: минимальная длина серии нулей, необходимая для перехода из NZW к ZW
+    const EC_POINT* P, // Точка эллиптической кривой, которая будет умножена на k
+    const EC_GROUP* G, // Группа точек эллиптической кривой
+    EC_POINT** Q,
+    const int mode // 0 - CLNW, 1 - VLNW
+);
+void multiply_VLNW_modified2(
     const BIGNUM* k, // Множитель
     const unsigned int kMaxLen, // Максимальная длина числа k
     const unsigned int d, // Параметр окна: максимальная длина NZW

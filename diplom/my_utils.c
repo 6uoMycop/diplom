@@ -17,6 +17,7 @@ void StartCounter()
     CounterStart = li.QuadPart;
 }
 
+// ms
 double GetCounter()
 {
     LARGE_INTEGER li;

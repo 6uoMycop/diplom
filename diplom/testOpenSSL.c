@@ -55,16 +55,21 @@ int main()
     EC_POINT* P = EC_POINT_new(G);
     //EC_POINT* Q_check = EC_POINT_new(G);
     BIGNUM* x = BN_new(), *y = BN_new(), *z = BN_new();
-    BIGNUM* k = BN_new();
+    BIGNUM* k1 = BN_new();
+    BIGNUM* k2 = BN_new();
+    BIGNUM* k3 = BN_new();
 
     //BN_dec2bn(&k, "137830");
     //BN_dec2bn(&k, "9362");
     //BN_dec2bn(&k, "40210710958665");
     //BN_dec2bn(&k, "70368744177663");
-    //BN_dec2bn(&k, "115792089237316195423570985008687907853269984665640564039457584007913129639936"); //2^256
-    BN_dec2bn(&k, "115792089237316195423456485008687907853269984665640564039457584007913129639936"); // |k|=256
-    //BN_dec2bn(&k, "66166908135609254527754848576393090201868562666080322308261476575950359794249"); // 100100100100...1001
+    BN_dec2bn(&k1, "57896044618658097711785492504343953926634992332820282019728792003956564819968"); //2^255
+    BN_dec2bn(&k2, "792089237316195423456485008687907853269984665640564039457584007913129639936"); // |k|=249
+    BN_dec2bn(&k3, "66166908135609254527754848576393090201868562666080322308261476575950359794249");  // 100100100100...1001
     //BN_dec2bn(&k, "1");
+    //BN_dec2bn(&k1, "9223372036854775808");  // 2^63
+    //BN_dec2bn(&k2, "1468841314162263496");  // |k|=61
+    //BN_dec2bn(&k3, "10540996613548315209"); // 100100100100...1001
 
 
     //EC_POINT_set_to_infinity(G, P);
@@ -101,11 +106,13 @@ int main()
 
     unsigned int d = 4;
     unsigned int r = 2;
+    unsigned int kMaxLen = 256;
+    //unsigned int kMaxLen = 64;
     EC_POINT* Q = NULL;
     for (int i = 0; i < 1000; i++)
     {
         multiply_VLNW(
-            k,
+            k1,
             d,
             r,
             P,
@@ -117,9 +124,8 @@ int main()
     printf("\n\n---------\n\n");
     for (int i = 0; i < 1000; i++)
     {
-        multiply_VLNW_modified(
-            k,
-            256, // max(|k|)
+        multiply_VLNW(
+            k2,
             d,
             r,
             P,
@@ -128,6 +134,81 @@ int main()
         );
         EC_POINT_clear_free(Q);
     }
+    printf("\n\n---------\n\n");
+    for (int i = 0; i < 1000; i++)
+    {
+        multiply_VLNW(
+            k3,
+            d,
+            r,
+            P,
+            G,
+            &Q
+        );
+        EC_POINT_clear_free(Q);
+    }
+    printf("\n\n---------\n\n");
+    printf("\n\n---------\n\n");
+    printf("\n\n---------\n\n");
+    printf("\n\n---------\n\n");
+    for (int i = 0; i < 1000; i++)
+    {
+        multiply_VLNW_modified(
+            k1,
+            kMaxLen, // max(|k|)
+            d,
+            r,
+            P,
+            G,
+            &Q,
+            1
+        );
+        EC_POINT_clear_free(Q);
+    }
+    printf("\n\n---------\n\n");
+    for (int i = 0; i < 1000; i++)
+    {
+        multiply_VLNW_modified(
+            k2,
+            kMaxLen, // max(|k|)
+            d,
+            r,
+            P,
+            G,
+            &Q,
+            1
+        );
+        EC_POINT_clear_free(Q);
+    }
+    printf("\n\n---------\n\n");
+    for (int i = 0; i < 1000; i++)
+    {
+        multiply_VLNW_modified(
+            k3,
+            kMaxLen, // max(|k|)
+            d,
+            r,
+            P,
+            G,
+            &Q,
+            1
+        );
+        EC_POINT_clear_free(Q);
+    }
+    //printf("\n\n---------\n\n");
+    //for (int i = 0; i < 1000; i++)
+    //{
+    //    multiply_VLNW_modified2(
+    //        k,
+    //        256, // max(|k|)
+    //        d,
+    //        r,
+    //        P,
+    //        G,
+    //        &Q
+    //    );
+    //    EC_POINT_clear_free(Q);
+    //}
 
     //EC_POINT_get_Jprojective_coordinates_GFp(G, Q, x, y, z, NULL);
     //printf("Q:\nx %s\ny %s\nz %s\nOn curve %s\nIs inf %s\n\n",
@@ -145,7 +226,9 @@ int main()
     //    EC_POINT_cmp(G, Q, Q_check, NULL) ? "no" : "yes");
 
 
-    BN_clear_free(k);
+    BN_clear_free(k1);
+    BN_clear_free(k2);
+    BN_clear_free(k3);
     EC_POINT_clear_free(P);
     //EC_POINT_clear_free(Q);
     //EC_POINT_clear_free(Q_check);
