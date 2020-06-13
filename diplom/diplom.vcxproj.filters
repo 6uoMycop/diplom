@@ -18,18 +18,18 @@
     <ClCompile Include="testOpenSSL.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="vlnw.c">
+    <ClCompile Include="my_utils.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="my_utils.c">
+    <ClCompile Include="sliding_window.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="vlnw.h">
+    <ClInclude Include="my_utils.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="my_utils.h">
+    <ClInclude Include="sliding_window.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

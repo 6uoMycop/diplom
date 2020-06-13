@@ -8,9 +8,10 @@
 
 
 #define CONST_MAX_WINDOW_LEN 128
+#define NTESTS 1
 
 typedef struct window {
-    BIGNUM* W;
+    BIGNUM*  W;
     uint64_t W_ui;
     uint64_t length;   // Длина окна в битах
 } window;
@@ -25,12 +26,19 @@ unsigned int constructBeDataFromBinArray(
     const unsigned char* inputStringLeBin,
     const unsigned int   numBits
 );
-int getWindow(
+int getWindow_VLNW(
     const unsigned char* bytes,
     const unsigned int   bitOffset,
-    //const unsigned int   lenBytes,
+    const unsigned int   lenBytes,
     const unsigned int   d,    // Максимальная длина NZW
     const unsigned int   r,    // Минимальная длина серии нулей, необходимая для перехода из NZW к ZW
+    window* resWind
+);
+int getWindow_CLNW(
+    const unsigned char* bytes,
+    const unsigned int   bitOffset,
+    const unsigned int   lenBytes,
+    const unsigned int   d,    // Максимальная длина NZW
     window* resWind
 );
 unsigned int constructWindows(
@@ -48,32 +56,25 @@ void printWindows(
     const unsigned int windNum,
     const BIGNUM* numberOpt     // Исходное число, которое было разбито на окна. Если NULL, печататься не будет
 );
-void multiply_VLNW(
+void multiply_sliding_window(
     const BIGNUM* k, // Множитель
     const unsigned int d, // Параметр окна: максимальная длина NZW
-    const unsigned int r, // Параметр окна: минимальная длина серии нулей, необходимая для перехода из NZW к ZW
+    const unsigned int r, // Параметр окна: минимальная длина серии нулей, необходимая для перехода из NZW к ZW. ЕСЛИ r==0, то использовать CLNW, иначе - VLNW
     const EC_POINT* P, // Точка эллиптической кривой, которая будет умножена на k
     const EC_GROUP* G, // Группа точек эллиптической кривой
-    EC_POINT** Q
+    EC_POINT** Q, // Результат
+    const char* dbgIndex // Номер тестируемого числа для вывода в файл
 );
-void multiply_VLNW_modified(
-    const BIGNUM* k, // Множитель
-    const unsigned int kMaxLen, // Максимальная длина числа k
-    const unsigned int d, // Параметр окна: максимальная длина NZW
-    const unsigned int r, // Параметр окна: минимальная длина серии нулей, необходимая для перехода из NZW к ZW
-    const EC_POINT* P, // Точка эллиптической кривой, которая будет умножена на k
-    const EC_GROUP* G, // Группа точек эллиптической кривой
-    EC_POINT** Q,
-    const int mode // 0 - CLNW, 1 - VLNW
-);
-void multiply_VLNW_modified2(
+void multiply_sliding_window_modified(
     const BIGNUM* k, // Множитель
     const unsigned int kMaxLen, // Максимальная длина числа k
     const unsigned int d, // Параметр окна: максимальная длина NZW
-    const unsigned int r, // Параметр окна: минимальная длина серии нулей, необходимая для перехода из NZW к ZW
+    const unsigned int r, // Параметр окна: минимальная длина серии нулей, необходимая для перехода из NZW к ZW. ЕСЛИ r==0, то использовать CLNW, иначе - VLNW
     const EC_POINT* P, // Точка эллиптической кривой, которая будет умножена на k
     const EC_GROUP* G, // Группа точек эллиптической кривой
-    EC_POINT** Q
+    EC_POINT** Q, // Результат
+    const char* dbgIndex // Номер тестируемого числа для вывода в файл
 );
+
 
 

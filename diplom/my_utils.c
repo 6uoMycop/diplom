@@ -31,3 +31,22 @@ void errExit(const char* message)
     system("pause");
     exit(1);
 }
+
+void printTimeToFile(const double time, const char* fname, const char* index, const int par1, const int par2)
+{
+    char fileName[256] = { 0 };
+    strcat(fileName, fname);
+    strcat(fileName, index);
+    strcat(fileName, "_");
+    _itoa(par1, &fileName[strlen(fileName)], 10);
+    if (par2)
+    {
+        strcat(fileName, "_");
+        _itoa(par2, &fileName[strlen(fileName)], 10);
+    }
+    strcat(fileName, ".txt");
+    FILE* F = fopen(fileName, "a+");
+    fprintf(F, "%f\n", time);
+    fclose(F);
+}
+
